@@ -2,61 +2,42 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class UserService {
-  private users: User[] = [];
-  private nextId = 1;
+  constructor(private readonly dbService: DatabaseService) {}
 
   findAll(): User[] {
-    return this.users;
+    return this.dbService.getUsers();
   }
 
   findOne(id: number): User | undefined {
-    return this.users.find((user) => user.id === id);
+    return this.dbService.findUserById(id);
   }
 
   create(createUserDto: CreateUserDto): User {
-    const now = new Date();
-    const newUser: User = {
-      id: this.nextId++,
+    // Set default value for isAdmin if not provided
+    const userData = {
       ...createUserDto,
-      createdAt: now,
-      updatedAt: now,
+      isAdmin: createUserDto.isAdmin ?? false, // <-- FIX: Add default value
     };
-    this.users.push(newUser);
-    return newUser;
+    return this.dbService.createUser(userData);
   }
 
   update(id: number, updateUserDto: UpdateUserDto): User {
-    const userIndex = this.users.findIndex((user) => user.id === id);
-    if (userIndex === -1) {
+    const updatedUser = this.dbService.updateUser(id, updateUserDto);
+    if (!updatedUser) {
       throw new NotFoundException('User not found');
     }
-
-    const originalUser = this.users[userIndex];
-    const updatedUser = {
-      ...originalUser,
-      ...updateUserDto,
-      updatedAt: new Date(),
-    };
-
-    this.users[userIndex] = updatedUser;
     return updatedUser;
   }
 
   remove(id: number): User {
-    const userIndex = this.users.findIndex((user) => user.id === id);
-    if (userIndex === -1) {
+    const deletedUser = this.dbService.deleteUser(id);
+    if (!deletedUser) {
       throw new NotFoundException('User not found');
     }
-    const [deletedUser] = this.users.splice(userIndex, 1);
     return deletedUser;
-  }
-  
-  // Helper to reset data for tests
-  resetData() {
-    this.users = [];
-    this.nextId = 1;
   }
 }
